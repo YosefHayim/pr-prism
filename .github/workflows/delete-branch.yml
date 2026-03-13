@@ -1,0 +1,37 @@
+name: Auto Delete Merged Branch
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  delete-branch:
+    if: >
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Delete merged branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
+          REPO: ${{ github.repository }}
+        run: |
+          PROTECTED_BRANCHES="main master dev develop staging production release"
+
+          for protected in $PROTECTED_BRANCHES; do
+            if [ "$BRANCH_NAME" = "$protected" ]; then
+              echo "⏭️  Skipping protected branch: $BRANCH_NAME"
+              exit 0
+            fi
+          done
+
+          ENCODED_BRANCH=$(printf '%s' "$BRANCH_NAME" | jq -sRr @uri)
+
+          echo "🗑️  Deleting branch: $BRANCH_NAME"
+          gh api -X DELETE "repos/$REPO/git/refs/heads/$ENCODED_BRANCH" \
+            && echo "✅ Branch '$BRANCH_NAME' deleted successfully" \
+            || echo "⚠️  Branch '$BRANCH_NAME' may have already been deleted"

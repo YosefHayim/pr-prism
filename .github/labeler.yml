@@ -1,0 +1,20 @@
+scripts:
+  - changed-files:
+    - any-glob-to-any-file: 'scripts/**'
+
+documentation:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'README.md'
+      - '*.md'
+      - '.github/*.md'
+
+dependencies:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+
+ci:
+  - changed-files:
+    - any-glob-to-any-file: '.github/workflows/**'
