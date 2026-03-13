@@ -1,0 +1,22 @@
+{
+  "name": "pr-prism",
+  "version": "1.0.0",
+  "description": "Stateful GitHub PR review scraper for AI agents — filter noise, cache seen comments, deliver signal",
+  "type": "module",
+  "scripts": {
+    "pr-review": "tsx scripts/scrape-pr-reviews.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.6",
+    "@types/prompts": "^2.4.9",
+    "prompts": "^2.4.2",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "license": "MIT"
+}
