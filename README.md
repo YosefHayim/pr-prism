@@ -1,12 +1,26 @@
 # pr-prism
 
-[![CI](https://github.com/YosefHayim/pr-prism/actions/workflows/ci.yml/badge.svg)](https://github.com/YosefHayim/pr-prism/actions/workflows/ci.yml)
+<div align="center">
+
 [![npm version](https://img.shields.io/npm/v/pr-prism)](https://www.npmjs.com/package/pr-prism)
+[![npm downloads](https://img.shields.io/npm/dm/pr-prism)](https://www.npmjs.com/package/pr-prism)
+[![CI](https://github.com/YosefHayim/pr-prism/actions/workflows/ci.yml/badge.svg)](https://github.com/YosefHayim/pr-prism/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Contributors Welcome](https://img.shields.io/badge/contributors-welcome-brightgreen.svg)](https://github.com/YosefHayim/pr-prism/issues)
 
 > Stateful GitHub PR review scraper for AI agent workflows. Filter noise, cache seen comments, deliver signal.
 
+</div>
+
+---
+
 AI agents re-reading the same resolved comments, outdated threads, and bot spam on every loop — wasting tokens and losing context. pr-prism solves this with two commands: scrape only what's new, then resolve what's been addressed.
+
+## Why
+
+AI coding agents loop on PR review comments — re-reading the same resolved threads, outdated feedback, and bot noise on every iteration. This wastes tokens and loses context fast.
+
+pr-prism solves this with two focused commands: scrape only what's new since the last run, then auto-resolve threads that have been addressed. Your agent gets clean signal, not stale noise.
 
 ---
 
@@ -124,12 +138,7 @@ Copy `.pr-prism.example.json` to `.pr-prism.json` in your repo root:
 
 ## Contributing
 
-Contributions are welcome! Bug reports, feature requests, and PRs are all appreciated.
-
-1. Fork the repo
-2. Create a branch: `git checkout -b feat/my-feature`
-3. Commit with [Conventional Commits](https://www.conventionalcommits.org/)
-4. Open a PR against `main`
+PRs and issues welcome. Fork the repo, create a feature branch, and open a pull request.
 
 ---
 
