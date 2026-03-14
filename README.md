@@ -122,6 +122,17 @@ Copy `.pr-prism.example.json` to `.pr-prism.json` in your repo root:
 
 ---
 
+## Contributing
+
+Contributions are welcome! Bug reports, feature requests, and PRs are all appreciated.
+
+1. Fork the repo
+2. Create a branch: `git checkout -b feat/my-feature`
+3. Commit with [Conventional Commits](https://www.conventionalcommits.org/)
+4. Open a PR against `main`
+
+---
+
 ## License
 
 MIT
