@@ -32,6 +32,9 @@ pnpm run pr-review -- https://github.com/owner/repo/pull/42
 
 # Resolve handled threads + tag agents
 pnpm run pr-resolve -- 42                 # resolve all threads from last scrape
+pnpm run pr-resolve -- 42 --auto          # smart auto-resolve (detects addressed threads)
+pnpm run pr-resolve -- 42 --auto --dry-run # preview auto-resolve classifications
+pnpm run pr-resolve -- 42 --auto --tag-agents # auto-resolve + tag agents
 pnpm run pr-resolve -- 42 --dry-run       # preview without mutating
 pnpm run pr-resolve -- 42 --tag-agents    # resolve + post @mention comment
 pnpm run pr-resolve -- 42 --tag-agents --comment "Fixed in abc123"
@@ -69,9 +72,11 @@ pnpm run pr-resolve -- 42 --unresolve     # re-open threads if needed
 1. pnpm run pr-review -- <PR number>
 2. Agent reads pr-reviews/new-<timestamp>.md
 3. Agent implements fixes, commits, pushes
-4. pnpm run pr-resolve -- <PR number> --tag-agents
-   → Resolves handled threads via GraphQL
-   → Posts comment tagging AI agents for re-review
+4. pnpm run pr-resolve -- <PR number> --auto --tag-agents
+   → Re-fetches live thread state from GitHub
+   → Auto-resolves: isOutdated threads + matched suggestions
+   → Posts: "Auto-resolved 6/8 threads. 2 remain."
+   → Tags agents for re-review
 5. Repeat from step 1 — only new reviewer replies appear
 ```
 
