@@ -25,5 +25,13 @@
     "node": ">=20.0.0"
   },
   "packageManager": "pnpm@9.15.0",
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/YosefHayim/pr-prism"
+  },
+  "homepage": "https://github.com/YosefHayim/pr-prism#readme",
+  "bugs": {
+    "url": "https://github.com/YosefHayim/pr-prism/issues"
+  }
 }
