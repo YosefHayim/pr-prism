@@ -49,6 +49,7 @@ interface AutoThread {
   path: string;
   line: number | null;
   originalLine: number | null;
+  subjectType: "LINE" | "FILE";
   comments: { nodes: AutoThreadComment[] };
 }
 
@@ -79,7 +80,7 @@ query($owner: String!, $repo: String!, $prNumber: Int!) {
       reviewThreads(first: 100) {
         pageInfo { hasNextPage }
         nodes {
-          id isResolved isOutdated
+          id isResolved isOutdated subjectType
           path line originalLine
           comments(first: 20) {
             nodes {
@@ -168,7 +169,7 @@ function fetchThreadsLive(owner: string, repo: string, prNumber: number): AutoPa
 
 function extractSuggestions(body: string): string[] {
   const suggestions: string[] = [];
-  const regex = /```suggestion\n([\s\S]*?)```/g;
+  const regex = /```suggestion(?::[^\r\n]*)?\r?\n([\s\S]*?)```/g;
   let match: RegExpExecArray | null;
   while ((match = regex.exec(body)) !== null) {
     suggestions.push(match[1].trimEnd());
@@ -182,7 +183,7 @@ function fetchFileAtHead(owner: string, repo: string, path: string, headSha: str
     const raw = run(`gh api repos/${owner}/${repo}/contents/${encodedPath}?ref=${headSha}`);
     const parsed = JSON.parse(raw) as { content?: string; encoding?: string };
     if (parsed.encoding === "base64" && parsed.content) {
-      return Buffer.from(parsed.content.replace(/\n/g, ""), "base64").toString("utf-8");
+      return Buffer.from(parsed.content.replace(/[\r\n\s]/g, ""), "base64").toString("utf-8");
     }
     return null;
   } catch {
@@ -230,7 +231,8 @@ function classifyThreads(
   return threads
     .filter((t) => !t.isResolved)
     .map((thread): ClassifiedThread => {
-      if (thread.isOutdated || thread.line === null) {
+      const lineGone = thread.subjectType === "LINE" && thread.line === null;
+      if (thread.isOutdated || lineGone) {
         return { thread, action: "resolve", reason: "lines-changed" };
       }
 
@@ -243,10 +245,14 @@ function classifyThreads(
 
         const fileContent = getFile(filePath);
         if (fileContent === null) {
-          return { thread, action: "resolve", reason: "lines-changed" };
+          return { thread, action: "skip", reason: "no-signal" };
         }
 
-        const allMatch = suggestions.every((s) => matchesSuggestion(fileContent, s));
+        const anchorLine = thread.line ?? thread.originalLine;
+        const scopedContent = anchorLine != null && anchorLine > 0
+          ? fileContent.split("\n").slice(Math.max(0, anchorLine - 20), anchorLine + 20).join("\n")
+          : fileContent;
+        const allMatch = suggestions.every((s) => matchesSuggestion(scopedContent, s));
         if (allMatch) {
           return { thread, action: "resolve", reason: "suggestion-applied" };
         }
