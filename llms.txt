@@ -1,0 +1,80 @@
+# pr-prism
+
+> Filter the noise. Focus on what matters.
+
+Stateful GitHub PR review scraper for AI agent workflows. Fetches review comments via the GitHub GraphQL API, filters bots and noise, emits only new/unresolved comments — once per ID, forever cached. After fixes are pushed, resolves threads and tags AI agents for re-review.
+
+## Commands
+
+- `pnpm run pr-review` — detect repo, list open PRs, interactive select
+- `pnpm run pr-review -- 42` — process PR #42 directly (non-interactive)
+- `pnpm run pr-review -- <url>` — process by full GitHub PR URL
+- `pnpm run pr-resolve` — resolve threads from latest sidecar (auto-runs pr-review if missing)
+- `pnpm run pr-resolve -- 42` — explicit PR number
+- `pnpm run pr-resolve -- 42 --dry-run` — preview without mutating
+- `pnpm run pr-resolve -- 42 --tag-agents` — resolve + post @mention comment
+- `pnpm run pr-resolve -- 42 --tag-agents --comment "Fixed in abc123"` — custom message
+- `pnpm run pr-resolve -- 42 --unresolve` — re-open resolved threads
+
+## Output Files
+
+- `pr-reviews/new-<timestamp>.md` — new actionable comments since last run
+- `pr-reviews/.scraped-ids.json` — persistent ID cache (commit this file)
+- `pr-reviews/.threads-<pr>.json` — thread IDs consumed by pr-resolve
+
+## Comment Format (in output markdown)
+
+Each comment header includes visible IDs for LLM reference:
+
+```
+## 💬 **author** · thread `PRRT_xxx` · `#databaseId`   ← first comment of an inline thread
+## 💬 **author** · `#databaseId`                        ← subsequent comments / general comments
+```
+
+## What Gets Filtered
+
+- Already-seen comment IDs (in `.scraped-ids.json`) — silently skipped
+- Resolved threads (`isResolved: true`) — skipped and cached
+- Bot authors (ending in `[bot]` or matching `KNOWN_BOTS`) — skipped and cached
+- Outdated threads (`isOutdated: true`) — shown with `### ⚠️ OUTDATED / SUPERSEDED`
+- Social sharing links (Twitter, Reddit, LinkedIn, CodeAnt) — stripped from body
+
+## Config (`.pr-prism.json` in repo root)
+
+Create this file to customise behaviour without editing source:
+
+```json
+{
+  "agentMentions": ["cubic-dev-ai", "coderabbitai"]
+}
+```
+
+`agentMentions` — list of GitHub handles (without `@`) tagged in the post-resolve comment. Defaults to `["cubic-dev-ai"]`.
+
+## The AI Agent Loop
+
+```
+1. pnpm run pr-review -- <PR number>
+        → pr-reviews/new-<timestamp>.md   (new comments only)
+        → pr-reviews/.threads-<pr>.json   (thread IDs for resolve)
+
+2. Agent reads markdown, implements fixes, commits, pushes
+
+3. pnpm run pr-resolve -- <PR number> --tag-agents
+        → Resolves all handled threads via GitHub GraphQL
+        → Posts: "All feedback addressed. @cubic-dev-ai please re-review."
+
+4. Repeat — only new reviewer replies appear
+```
+
+## Requirements
+
+- Node.js ≥ 20
+- gh CLI authenticated (`gh auth login`)
+
+## Source
+
+- [README](./README.md) — full documentation
+- [scripts/scrape-pr-reviews.ts](./scripts/scrape-pr-reviews.ts) — scraper
+- [scripts/resolve-pr-threads.ts](./scripts/resolve-pr-threads.ts) — resolver
+- [agents/scrape-pr-reviews.md](./agents/scrape-pr-reviews.md) — agent skill reference
