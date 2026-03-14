@@ -3,16 +3,22 @@
   "version": "1.0.6",
   "description": "Stateful GitHub PR review scraper for AI agents — filter noise, cache seen comments, deliver signal",
   "type": "module",
+  "bin": {
+    "pr-review": "scripts/scrape-pr-reviews.ts",
+    "pr-resolve": "scripts/resolve-pr-threads.ts"
+  },
   "scripts": {
     "pr-review": "tsx scripts/scrape-pr-reviews.ts",
     "pr-resolve": "tsx scripts/resolve-pr-threads.ts",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "prompts": "^2.4.2",
+    "tsx": "^4.7.0"
+  },
   "devDependencies": {
     "@types/node": "^20.10.6",
     "@types/prompts": "^2.4.9",
-    "prompts": "^2.4.2",
-    "tsx": "^4.7.0",
     "typescript": "^5.3.3"
   },
   "engines": {
