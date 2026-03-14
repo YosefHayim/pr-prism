@@ -57,7 +57,7 @@ interface AutoPayload {
     repository: {
       pullRequest: {
         headRefOid: string;
-        reviewThreads: { nodes: AutoThread[] };
+        reviewThreads: { pageInfo: { hasNextPage: boolean }; nodes: AutoThread[] };
       };
     };
   };
@@ -77,6 +77,7 @@ query($owner: String!, $repo: String!, $prNumber: Int!) {
     pullRequest(number: $prNumber) {
       headRefOid
       reviewThreads(first: 100) {
+        pageInfo { hasNextPage }
         nodes {
           id isResolved isOutdated
           path line originalLine
@@ -177,7 +178,8 @@ function extractSuggestions(body: string): string[] {
 
 function fetchFileAtHead(owner: string, repo: string, path: string, headSha: string): string | null {
   try {
-    const raw = run(`gh api repos/${owner}/${repo}/contents/${path}?ref=${headSha}`);
+    const encodedPath = encodeURIComponent(path).replace(/%2F/g, "/");
+    const raw = run(`gh api repos/${owner}/${repo}/contents/${encodedPath}?ref=${headSha}`);
     const parsed = JSON.parse(raw) as { content?: string; encoding?: string };
     if (parsed.encoding === "base64" && parsed.content) {
       return Buffer.from(parsed.content.replace(/\n/g, ""), "base64").toString("utf-8");
@@ -265,8 +267,15 @@ async function runAutoResolve(
   console.log(`\nAuto-resolving threads in ${owner}/${repo} #${prNumber}${isDryRun ? " [DRY RUN]" : ""}…\n`);
 
   const payload = fetchThreadsLive(owner, repo, prNumber);
-  const pr = payload.data.repository.pullRequest;
+  const pr = payload.data?.repository?.pullRequest;
+  if (!pr) {
+    console.error(`Could not fetch PR #${prNumber} from ${owner}/${repo}. Check the PR number and token permissions.`);
+    process.exit(1);
+  }
   const headSha = pr.headRefOid;
+  if (pr.reviewThreads.pageInfo.hasNextPage) {
+    console.log("  Warning: PR has >100 review threads. Only the first 100 are processed.\n");
+  }
   const allThreads = pr.reviewThreads.nodes;
   const unresolvedCount = allThreads.filter((t) => !t.isResolved).length;
 
@@ -310,7 +319,7 @@ async function runAutoResolve(
 
   console.log(`\n${ok} auto-resolved${failed > 0 ? `, ${failed} failed` : ""}${toSkip.length > 0 ? `, ${toSkip.length} skipped` : ""}`);
 
-  if (!isDryRun && (ok > 0 || toSkip.length > 0)) {
+  if (!isDryRun && ok > 0) {
     const config = loadConfig();
     const mentions = shouldTag
       ? " " + (config.agentMentions ?? DEFAULT_AGENT_MENTIONS).map((a) => `@${a}`).join(" ")
@@ -346,6 +355,10 @@ async function main(): Promise<void> {
   if (isAuto) {
     if (prNumber === null) {
       console.error("--auto requires a PR number. Usage: pnpm run pr-resolve -- <PR> --auto");
+      process.exit(1);
+    }
+    if (isUnresolve) {
+      console.error("--auto and --unresolve are incompatible.");
       process.exit(1);
     }
     let owner: string;
