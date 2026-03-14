@@ -15,7 +15,7 @@
  *   { "agentMentions": ["cubic-dev-ai", "coderabbitai"] }
  */
 
-import { execSync } from "node:child_process";
+import { execSync, spawnSync } from "node:child_process";
 import { readFileSync, writeFileSync, existsSync, readdirSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -34,6 +34,13 @@ function run(cmd: string): string {
 function loadConfig(): PrPrismConfig {
   if (!existsSync(CONFIG_FILE)) return {};
   try { return JSON.parse(readFileSync(CONFIG_FILE, "utf-8")) as PrPrismConfig; } catch { return {}; }
+}
+
+function runScrape(prNumber: number | null): void {
+  const args = ["scripts/scrape-pr-reviews.ts"];
+  if (prNumber !== null) args.push(String(prNumber));
+  const result = spawnSync(join("node_modules", ".bin", "tsx"), args, { stdio: "inherit" });
+  if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
 function findSidecar(prNumber: number | null): string | null {
@@ -86,11 +93,15 @@ async function main(): Promise<void> {
   const prArg = args.find((a) => /^\d+$/.test(a));
   const prNumber = prArg != null ? parseInt(prArg, 10) : null;
 
-  const sidecarPath = findSidecar(prNumber);
+  let sidecarPath = findSidecar(prNumber);
   if (!sidecarPath) {
-    console.error(`❌ No .threads-${prNumber ?? "*"}.json found in ${OUT_DIR}/`);
-    console.error("   Run pnpm run pr-review first to generate thread IDs.");
-    process.exit(1);
+    console.log("\n⚡ No sidecar found — running pr-review to generate it…\n");
+    runScrape(prNumber);
+    sidecarPath = findSidecar(prNumber);
+    if (!sidecarPath) {
+      console.log("ℹ️  pr-review ran but found no inline review threads to resolve.");
+      process.exit(0);
+    }
   }
 
   const sidecar = JSON.parse(readFileSync(sidecarPath, "utf-8")) as ThreadsSidecar;

@@ -142,9 +142,13 @@ function renderSuggestions(body: string): string {
   });
 }
 
-function appendComment(out: string, c: GhComment, prefix: string): string {
+function appendComment(out: string, c: GhComment, prefix: string, threadId?: string): string {
   const body = renderSuggestions(stripNoise(c.body)).trim();
-  return body ? out + prefix + `## 💬 **${c.author.login}**\n\n${body}\n\n---\n\n` : out;
+  if (!body) return out;
+  const meta = threadId
+    ? `thread \`${threadId}\` · \`#${c.databaseId}\``
+    : `\`#${c.databaseId}\``;
+  return out + prefix + `## 💬 **${c.author.login}** · ${meta}\n\n${body}\n\n---\n\n`;
 }
 
 async function main(): Promise<void> {
@@ -178,10 +182,9 @@ async function main(): Promise<void> {
       const key = String(c.databaseId);
       if (thread.isResolved || isBot(c.author.login)) { cache.add(key); continue; }
       if (cache.has(key)) continue;
-      const threadAnnotation = firstInThread ? `<!-- thread-id: ${thread.id} -->\n` : "";
       const filePrefix = c.path ? `### 📄 File: \`${c.path}\`\n\n` : "";
       const outdatedPrefix = thread.isOutdated ? `### ⚠️ OUTDATED / SUPERSEDED\n\n` : "";
-      output = appendComment(output, c, threadAnnotation + filePrefix + outdatedPrefix);
+      output = appendComment(output, c, filePrefix + outdatedPrefix, firstInThread ? thread.id : undefined);
       cache.add(key); count++;
       if (firstInThread) { emittedThreadIds.push(thread.id); firstInThread = false; }
     }
