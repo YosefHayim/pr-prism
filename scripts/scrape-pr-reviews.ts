@@ -151,6 +151,30 @@ function appendComment(out: string, c: GhComment, prefix: string, threadId?: str
   return out + prefix + `## 💬 **${c.author.login}** · ${meta}\n\n${body}\n\n---\n\n`;
 }
 
+function ensureGitignore(): void {
+  const GITIGNORE = ".gitignore";
+  const MARKER = "# pr-prism";
+  const ENTRIES = [
+    "",
+    MARKER,
+    "pr-reviews/new-*.md",
+    "pr-reviews/.threads-*.json",
+  ].join("\n");
+
+  if (!existsSync(GITIGNORE)) {
+    writeFileSync(GITIGNORE, ENTRIES.trimStart() + "\n", "utf-8");
+    console.log("📝 Created .gitignore with pr-reviews output entries");
+    return;
+  }
+
+  const content = readFileSync(GITIGNORE, "utf-8");
+  if (content.includes(MARKER)) return;
+
+  const suffix = content.endsWith("\n") ? "" : "\n";
+  writeFileSync(GITIGNORE, content + suffix + ENTRIES + "\n", "utf-8");
+  console.log("📝 Appended pr-reviews output entries to .gitignore");
+}
+
 async function main(): Promise<void> {
   const arg = process.argv[2];
   let owner: string, repo: string, prNumber: number;
@@ -171,6 +195,7 @@ async function main(): Promise<void> {
   const pr = fetchPr(owner, repo, prNumber).data.repository.pullRequest;
 
   mkdirSync(OUT_DIR, { recursive: true });
+  ensureGitignore();
   const cache = loadCache();
   let output = `# PR Review — ${owner}/${repo} #${prNumber}\n\n`;
   let count = 0;
