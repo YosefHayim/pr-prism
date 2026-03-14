@@ -1,0 +1,123 @@
+# Automated Release Workflow
+# ─────────────────────────
+# Bumps version, creates Git tag, and publishes a GitHub Release
+# when a PR is merged into `main`.
+#
+# Version bump is determined by PR labels:
+#   - `major` → breaking changes (1.0.0 → 2.0.0)
+#   - `minor` → new features    (1.0.0 → 1.1.0)
+#   - `patch` → bug fixes       (1.0.0 → 1.0.1)  [default]
+#   - `no-release` → skip entirely
+#
+# Template Note:
+#   - Ensure labels `major`, `minor`, `patch`, `no-release` exist in your repo
+#   - For npm publish: uncomment the publish step and add NPM_TOKEN secret
+#   - Works with dev → main merge flow out of the box
+#   - GITHUB_TOKEN won't trigger downstream workflows; use a PAT if needed
+
+name: Release
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+jobs:
+  release:
+    if: >
+      github.event.pull_request.merged == true &&
+      !contains(github.event.pull_request.labels.*.name, 'no-release')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Determine version bump
+        id: bump
+        env:
+          LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
+        run: |
+          if echo "$LABELS" | grep -q '"major"'; then
+            echo "type=major" >> "$GITHUB_OUTPUT"
+          elif echo "$LABELS" | grep -q '"minor"'; then
+            echo "type=minor" >> "$GITHUB_OUTPUT"
+          else
+            echo "type=patch" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Bump version in package.json
+        id: version
+        run: |
+          if ! node -e "const p = require('./package.json'); if (!p.version) process.exit(1);" 2>/dev/null; then
+            echo "No version found in package.json — initializing to 0.1.0"
+            npm pkg set version=0.1.0
+          fi
+          NEW_VERSION=$(npm version ${{ steps.bump.outputs.type }} --no-git-tag-version)
+          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Bumped to $NEW_VERSION (${{ steps.bump.outputs.type }})"
+
+      - name: Build release notes from commits
+        id: notes
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          BUMP_TYPE: ${{ steps.bump.outputs.type }}
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            COMMITS=$(git log "$PREV_TAG"..HEAD --pretty=format:"- %s (%h)" --no-merges)
+          else
+            COMMITS=$(git log --pretty=format:"- %s (%h)" --no-merges -20)
+          fi
+
+          {
+            echo "body<<RELEASE_EOF"
+            echo "## What Changed"
+            echo ""
+            echo "**PR:** [#${PR_NUMBER} — ${PR_TITLE}](${PR_URL})"
+            echo "**Bump:** \`${BUMP_TYPE}\`"
+            echo ""
+            echo "### Commits"
+            echo ""
+            echo "$COMMITS"
+            echo ""
+            echo "RELEASE_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Commit version bump and create tag
+        run: |
+          git add package.json package-lock.json 2>/dev/null || git add package.json
+          git commit -m "chore(release): ${{ steps.version.outputs.version }}"
+          git tag -a "${{ steps.version.outputs.version }}" \
+            -m "Release ${{ steps.version.outputs.version }} — ${{ github.event.pull_request.title }}"
+          git push origin main --follow-tags
+
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.version.outputs.version }}
+        run: |
+          gh release create "$TAG" \
+            --title "$TAG — ${{ github.event.pull_request.title }}" \
+            --notes "${{ steps.notes.outputs.body }}" \
+            --latest
+
+      # npm publish is handled by publish.yml (triggered by the tag created above)
