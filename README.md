@@ -2,7 +2,7 @@
 
 > Filter the noise. Focus on what matters.
 
-**pr-prism** is a stateful GitHub PR review scraper built for AI agent workflows. It fetches review comments directly via the GitHub GraphQL API, filters out bots and noise, and emits only what's actionable — once per comment, forever cached.
+**pr-prism** is a stateful GitHub PR review scraper built for AI agent workflows. It fetches review comments directly via the GitHub GraphQL API, filters out bots and noise, emits only what's actionable — once per comment, forever cached — and can resolve handled threads and tag agents for re-review when fixes are pushed.
 
 ---
 
@@ -14,7 +14,10 @@ Every re-run, the agent re-reads the same resolved comments, outdated threads, a
 
 ## The Solution
 
-pr-prism solves this with a simple **ID cache**. Once a comment ID is processed, it's written to `pr-reviews/.scraped-ids.json`. Re-runs skip everything already seen and emit only what's new.
+pr-prism solves this with a two-command workflow:
+
+1. **`pr-review`** — scrapes new comments, caches IDs so re-runs only show what's new
+2. **`pr-resolve`** — resolves handled threads via GraphQL and tags AI agents for re-review
 
 ---
 
@@ -29,6 +32,8 @@ pr-prism solves this with a simple **ID cache**. Once a comment ID is processed,
 | **Suggested changes** | ` ```suggestion ` blocks rendered as clean `diff` (REMOVE / ADD) |
 | **File path** | Each inline comment prefixed with `📄 File: path/to/file.ts` |
 | **Noise domains** | Social sharing links (Twitter, Reddit, LinkedIn, CodeAnt) stripped |
+| **Thread resolution** | `pr-resolve` closes threads via `resolveReviewThread` mutation |
+| **Agent tagging** | `--tag-agents` posts a configurable @mention comment after resolving |
 
 ---
 
@@ -52,15 +57,23 @@ pnpm install
 
 ## Usage
 
+### `pr-review` — scrape review comments
+
 ```bash
-# List open PRs interactively (arrow-key select)
-pnpm run pr-review
+pnpm run pr-review                        # detect repo, list open PRs, interactive select
+pnpm run pr-review -- 42                  # process PR #42 directly
+pnpm run pr-review -- <url>               # process by full GitHub PR URL
+```
 
-# Process a specific PR by number
-pnpm run pr-review -- 42
+### `pr-resolve` — resolve threads + tag agents
 
-# Process by full GitHub PR URL
-pnpm run pr-review -- https://github.com/owner/repo/pull/42
+```bash
+pnpm run pr-resolve                       # resolve threads from latest .threads-*.json
+pnpm run pr-resolve -- 42                 # explicit PR number
+pnpm run pr-resolve -- 42 --dry-run       # preview what would be resolved
+pnpm run pr-resolve -- 42 --tag-agents    # resolve + post @mention comment
+pnpm run pr-resolve -- 42 --tag-agents --comment "Fixed in abc123"
+pnpm run pr-resolve -- 42 --unresolve     # re-open threads if needed
 ```
 
 ---
@@ -71,8 +84,7 @@ pnpm run pr-review -- https://github.com/owner/repo/pull/42
 |---|---|
 | `pr-reviews/new-<timestamp>.md` | New actionable comments since last run |
 | `pr-reviews/.scraped-ids.json` | Persistent ID cache — **commit this file** |
-
-The output file is clean Markdown. Pipe it to any AI agent, paste it into a chat window, or read it yourself.
+| `pr-reviews/.threads-<pr>.json` | Thread IDs consumed by `pr-resolve` |
 
 ---
 
@@ -80,12 +92,28 @@ The output file is clean Markdown. Pipe it to any AI agent, paste it into a chat
 
 ```
 1.  pnpm run pr-review -- <PR number>
-2.  Agent reads  pr-reviews/new-<timestamp>.md
-3.  Agent implements fixes, commits, pushes
-4.  Repeat from step 1
-        → Only new reviewer replies appear each run
-        → Resolved threads stay invisible
-        → Bots stay out of the way
+        → pr-reviews/new-<timestamp>.md  (new comments only)
+        → pr-reviews/.threads-<pr>.json  (thread IDs for resolve)
+
+2.  Agent reads the markdown, implements fixes, commits, pushes
+
+3.  pnpm run pr-resolve -- <PR number> --tag-agents
+        → Resolves all handled threads via GitHub GraphQL
+        → Posts: "All feedback addressed. @cubic-dev-ai please re-review."
+
+4.  Repeat from step 1 — only new reviewer replies appear
+```
+
+---
+
+## Config (`.pr-prism.json`)
+
+Create `.pr-prism.json` in your repo root to customise agent mentions without editing source:
+
+```json
+{
+  "agentMentions": ["cubic-dev-ai", "coderabbitai"]
+}
 ```
 
 ---

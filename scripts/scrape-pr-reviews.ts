@@ -11,8 +11,9 @@
  *   pnpm run pr-review -- <url>     — process by full GitHub PR URL
  *
  * OUTPUT
- *   pr-reviews/new-<timestamp>.md   — new comments only since last run
- *   pr-reviews/.scraped-ids.json    — persistent ID cache (commit this file)
+ *   pr-reviews/new-<timestamp>.md         — new comments only since last run
+ *   pr-reviews/.scraped-ids.json          — persistent ID cache (commit this file)
+ *   pr-reviews/.threads-<prNumber>.json   — thread IDs for pr-resolve
  */
 
 import { execSync } from "node:child_process";
@@ -31,7 +32,7 @@ query($owner: String!, $repo: String!, $prNumber: Int!) {
     pullRequest(number: $prNumber) {
       reviewThreads(first: 100) {
         nodes {
-          isResolved isOutdated
+          id isResolved isOutdated
           comments(first: 20) {
             nodes { databaseId author { login } body path }
           }
@@ -48,7 +49,8 @@ query($owner: String!, $repo: String!, $prNumber: Int!) {
 }`.trim();
 
 interface GhComment { databaseId: number; author: { login: string }; body: string; path?: string; state?: string; }
-interface ReviewThread { isResolved: boolean; isOutdated: boolean; comments: { nodes: GhComment[] }; }
+interface ReviewThread { id: string; isResolved: boolean; isOutdated: boolean; comments: { nodes: GhComment[] }; }
+interface ThreadsSidecar { prNumber: number; owner: string; repo: string; threadIds: string[]; }
 interface PrPayload { data: { repository: { pullRequest: { reviewThreads: { nodes: ReviewThread[] }; reviews: { nodes: GhComment[] }; comments: { nodes: GhComment[] }; }; }; }; }
 interface PrListItem { number: number; title: string; author: { login: string }; }
 interface IdCache { seen: string[]; }
@@ -168,16 +170,20 @@ async function main(): Promise<void> {
   const cache = loadCache();
   let output = `# PR Review — ${owner}/${repo} #${prNumber}\n\n`;
   let count = 0;
+  const emittedThreadIds: string[] = [];
 
   for (const thread of pr.reviewThreads.nodes) {
+    let firstInThread = true;
     for (const c of thread.comments.nodes) {
       const key = String(c.databaseId);
       if (thread.isResolved || isBot(c.author.login)) { cache.add(key); continue; }
       if (cache.has(key)) continue;
+      const threadAnnotation = firstInThread ? `<!-- thread-id: ${thread.id} -->\n` : "";
       const filePrefix = c.path ? `### 📄 File: \`${c.path}\`\n\n` : "";
       const outdatedPrefix = thread.isOutdated ? `### ⚠️ OUTDATED / SUPERSEDED\n\n` : "";
-      output = appendComment(output, c, filePrefix + outdatedPrefix);
+      output = appendComment(output, c, threadAnnotation + filePrefix + outdatedPrefix);
       cache.add(key); count++;
+      if (firstInThread) { emittedThreadIds.push(thread.id); firstInThread = false; }
     }
   }
 
@@ -192,6 +198,12 @@ async function main(): Promise<void> {
   saveCache(cache);
   const outFile = join(OUT_DIR, `new-${new Date().toISOString().replace(/[:.]/g, "-")}.md`);
   writeFileSync(outFile, output, "utf-8");
+
+  if (emittedThreadIds.length > 0) {
+    const sidecar: ThreadsSidecar = { prNumber, owner, repo, threadIds: emittedThreadIds };
+    writeFileSync(join(OUT_DIR, `.threads-${prNumber}.json`), JSON.stringify(sidecar, null, 2), "utf-8");
+  }
+
   console.log(count > 0 ? `\n✅ ${count} new comment(s) → ${outFile}` : `\n✅ No new comments since last run. → ${outFile}`);
 }
 

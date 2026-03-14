@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "pr-review": "tsx scripts/scrape-pr-reviews.ts",
+    "pr-resolve": "tsx scripts/resolve-pr-threads.ts",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

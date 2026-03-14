@@ -4,3 +4,12 @@ dist/
 
 # Generated review output — do NOT ignore .scraped-ids.json (it is the state cache)
 pr-reviews/new-*.md
+
+# IDE and tooling config — not part of the project
+.cursor/
+.clinerules/
+.kilocode/
+.husky/
+skills/
+AGENTS.md
+llms.txt
