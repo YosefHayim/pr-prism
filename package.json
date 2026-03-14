@@ -1,6 +1,6 @@
 {
   "name": "pr-prism",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Stateful GitHub PR review scraper for AI agents — filter noise, cache seen comments, deliver signal",
   "type": "module",
   "bin": {
