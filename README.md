@@ -33,6 +33,7 @@ pr-prism solves this with a two-command workflow:
 | **File path** | Each inline comment prefixed with `📄 File: path/to/file.ts` |
 | **Noise domains** | Social sharing links (Twitter, Reddit, LinkedIn, CodeAnt) stripped |
 | **Thread resolution** | `pr-resolve` closes threads via `resolveReviewThread` mutation |
+| **Auto-resolve** | `--auto` detects addressed threads via `isOutdated` + suggestion matching |
 | **Agent tagging** | `--tag-agents` posts a configurable @mention comment after resolving |
 
 ---
@@ -76,6 +77,20 @@ pnpm run pr-resolve -- 42 --tag-agents --comment "Fixed in abc123"
 pnpm run pr-resolve -- 42 --unresolve     # re-open threads if needed
 ```
 
+### `pr-resolve --auto` — smart auto-resolve
+
+```bash
+pnpm run pr-resolve -- 42 --auto              # auto-resolve addressed threads only
+pnpm run pr-resolve -- 42 --auto --dry-run    # preview what would be resolved
+pnpm run pr-resolve -- 42 --auto --tag-agents # auto-resolve + tag agents for re-review
+```
+
+Auto-resolve re-fetches live thread state from GitHub and resolves only threads where:
+- **Lines changed** — GitHub marks the thread as `isOutdated` (commented lines were modified)
+- **Suggestion applied** — a `` ```suggestion `` block in the comment matches the current file content
+
+Threads without a strong signal are skipped. A summary comment is posted on the PR with counts per category.
+
 ---
 
 ## Output
@@ -97,9 +112,11 @@ pnpm run pr-resolve -- 42 --unresolve     # re-open threads if needed
 
 2.  Agent reads the markdown, implements fixes, commits, pushes
 
-3.  pnpm run pr-resolve -- <PR number> --tag-agents
-        → Resolves all handled threads via GitHub GraphQL
-        → Posts: "All feedback addressed. @cubic-dev-ai please re-review."
+3.  pnpm run pr-resolve -- <PR number> --auto --tag-agents
+        → Re-fetches live thread state from GitHub
+        → Auto-resolves: isOutdated threads + matched suggestions
+        → Posts: "Auto-resolved 6/8 threads. 2 remain."
+        → Tags agents for re-review
 
 4.  Repeat from step 1 — only new reviewer replies appear
 ```

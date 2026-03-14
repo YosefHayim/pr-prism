@@ -15,6 +15,9 @@ Stateful GitHub PR review scraper for AI agent workflows. Fetches review comment
 - `pnpm run pr-resolve -- 42 --tag-agents` — resolve + post @mention comment
 - `pnpm run pr-resolve -- 42 --tag-agents --comment "Fixed in abc123"` — custom message
 - `pnpm run pr-resolve -- 42 --unresolve` — re-open resolved threads
+- `pnpm run pr-resolve -- 42 --auto` — smart auto-resolve: re-fetch threads, resolve only addressed ones
+- `pnpm run pr-resolve -- 42 --auto --dry-run` — preview auto-resolve classifications
+- `pnpm run pr-resolve -- 42 --auto --tag-agents` — auto-resolve + tag agents
 
 ## Output Files
 
@@ -60,9 +63,11 @@ Create this file to customise behaviour without editing source:
 
 2. Agent reads markdown, implements fixes, commits, pushes
 
-3. pnpm run pr-resolve -- <PR number> --tag-agents
-        → Resolves all handled threads via GitHub GraphQL
-        → Posts: "All feedback addressed. @cubic-dev-ai please re-review."
+3. pnpm run pr-resolve -- <PR number> --auto --tag-agents
+        → Re-fetches live thread state from GitHub
+        → Auto-resolves: isOutdated threads + matched suggestions
+        → Posts: "Auto-resolved 6/8 threads. 2 remain."
+        → Tags agents for re-review
 
 4. Repeat — only new reviewer replies appear
 ```
