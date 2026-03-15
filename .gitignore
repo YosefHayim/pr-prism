@@ -12,3 +12,7 @@ pr-reviews/new-*.md
 .husky/
 skills/
 AGENTS.md
+
+# pr-prism
+pr-reviews/new-*.md
+pr-reviews/.threads-*.json
