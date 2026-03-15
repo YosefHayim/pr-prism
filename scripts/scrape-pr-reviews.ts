@@ -20,7 +20,7 @@ import { execSync } from "node:child_process";
 import { writeFileSync, readFileSync, existsSync, mkdirSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import prompts from "prompts";
+import { defineWizard, runWizard } from "grimoire-wizard";
 
 const KNOWN_BOTS = ["github-actions", "dependabot", "coderabbitai", "changeset-bot", "codeantai"];
 const OUT_DIR = "pr-reviews";
@@ -84,14 +84,29 @@ function listOpenPrs(owner: string, repo: string): PrListItem[] {
 
 async function selectPr(prs: PrListItem[]): Promise<number> {
   if (prs.length === 0) { console.log("No open PRs found."); process.exit(0); }
-  const { value } = await prompts({
-    type: "select",
-    name: "value",
-    message: "Select a PR:",
-    choices: prs.map((p) => ({ title: `#${p.number}  ${p.title}  (${p.author.login})`, value: p.number })),
+
+  const config = defineWizard({
+    meta: { name: "pr-prism" },
+    steps: [
+      {
+        id: "pr",
+        type: "select" as const,
+        message: "Select a PR:",
+        options: prs.map((p) => ({
+          value: String(p.number),
+          label: `#${p.number}  ${p.title}  (${p.author.login})`,
+        })),
+      },
+    ],
   });
-  if (value === undefined) process.exit(0);
-  return value as number;
+
+  const answers = await runWizard(config, {
+    onCancel: () => process.exit(0),
+  });
+
+  const selected = answers?.pr;
+  if (!selected) process.exit(0);
+  return parseInt(selected as string, 10);
 }
 
 function fetchPr(owner: string, repo: string, prNumber: number): PrPayload {

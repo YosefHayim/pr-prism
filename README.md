@@ -10,6 +10,8 @@
 
 > Stateful GitHub PR review scraper for AI agent workflows. Filter noise, cache seen comments, deliver signal.
 
+Built with [grimoire-wizard](https://github.com/YosefHayim/grimoire) for interactive CLI prompts.
+
 </div>
 
 ---
